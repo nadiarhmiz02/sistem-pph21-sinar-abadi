@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAPT Sinar Abadi — Payroll &amp; Pajak</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF core -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- jsPDF AutoTable PLUGIN (WAJIB untuk bikin tabel) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body class="auth-locked">
+  <section class="login-overlay" id="modal-login" role="dialog" aria-modal="true" aria-labelledby="login-title">
+    <div class="login-card">
+      <div class="login-brand">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 44 44"><defs><linearGradient id="login-brand-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F59E0B"></stop><stop offset="1" stop-color="#B45309"></stop></linearGradient></defs><circle cx="22" cy="22" r="20" fill="url(#login-brand-gold)" stroke="#FFFFFF" stroke-width="2"></circle><text x="22" y="28" text-anchor="middle" fill="#1E3A8A" font-family="'Playfair Display',serif" font-size="16" font-weight="700">SA</text></svg></span>
+        <span class="login-brand-name">PT Sinar Abadi</span>
+      </div>
+      <h1 id="login-title">Masuk ke Sistem Payroll</h1>
+      <p class="login-description">Gunakan akun Supabase Anda untuk melanjutkan.</p>
+      <form id="login-form">
+        <label class="login-field" for="login-email">Email</label>
+        <input class="login-input" id="login-email" name="email" type="email" autocomplete="username" required>
+        <label class="login-field" for="login-password">Password</label>
+        <input class="login-input" id="login-password" name="password" type="password" autocomplete="current-password" required>
+        <p class="login-error" id="login-error" role="alert" aria-live="polite"></p>
+        <button class="login-submit" id="login-submit" type="submit"><span>Masuk</span><span class="login-spinner hidden" aria-hidden="true"></span></button>
+      </form>
+    </div>
+  </section>
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#section-dashboard" data-section="dashboard"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 44 44" role="img"><defs><linearGradient id="brand-gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F59E0B"></stop><stop offset="1" stop-color="#B45309"></stop></linearGradient></defs><circle cx="22" cy="22" r="20" fill="url(#brand-gold)" stroke="#FFFFFF" stroke-width="2"></circle><text x="22" y="28" text-anchor="middle" fill="#1E3A8A" font-family="'Playfair Display',serif" font-size="16" font-weight="700">SA</text></svg></span><span class="brand-copy"><strong>PT Sinar Abadi</strong><small>PAYROLL &amp; PAJAK</small></span></a>
+    <span class="sidebar-divider" aria-hidden="true"></span>
+    <p class="sidebar-label">WORKSPACE</p>
+    <nav class="nav-links" aria-label="Navigasi utama">
+      <button class="nav-btn active" type="button" data-section="dashboard"><i data-lucide="layout-dashboard" aria-hidden="true"></i>Dashboard</button>
+      <button class="nav-btn" type="button" data-section="jabatan"><i data-lucide="briefcase" aria-hidden="true"></i>Jabatan</button>
+      <button class="nav-btn" type="button" data-section="karyawan"><i data-lucide="users" aria-hidden="true"></i>Karyawan</button>
+      <button class="nav-btn" type="button" data-section="gaji"><i data-lucide="wallet" aria-hidden="true"></i>Input Gaji</button>
+      <button class="nav-btn" type="button" data-section="hitung"><i data-lucide="calculator" aria-hidden="true"></i>Hitung Pajak</button>
+      <button class="nav-btn" type="button" data-section="riwayat"><i data-lucide="history" aria-hidden="true"></i>Riwayat</button>
+    </nav>
+    <button class="sidebar-logout" id="btn-logout" type="button"><i data-lucide="log-out" aria-hidden="true"></i>Logout</button>
+    <div class="sidebar-status"><span class="status-dot"></span><span><strong id="api-status">Menyiapkan koneksi</strong><small>Supabase</small></span></div>
+    <div id="badge-role" class="badge-role">-</div>
+    <div class="sidebar-foot">PT Sinar Abadi<br><span>Distribusi alat tulis kantor</span><small class="version-badge">v1.0.0</small></div>
+  </aside>
+
+  <main class="main">
+    <button class="mobile-menu" id="sidebar-toggle" type="button" aria-label="Buka navigasi" aria-expanded="false">Menu</button>
+
+    <section class="page-section active" id="section-dashboard">
+      <header class="heading"><div><p class="eyebrow">PUSAT KENDALI PENGGAJIAN</p><h1>Dashboard</h1><p class="subheading dashboard-welcome"><span>Selamat datang, Admin</span><span id="dashboard-date"></span></p></div><div class="actions"><button class="button" type="button" data-section="gaji"><i data-lucide="wallet" aria-hidden="true"></i>Input Gaji Baru</button><button class="button" type="button" data-section="hitung"><i data-lucide="calculator" aria-hidden="true"></i>Hitung Pajak</button></div></header>
+      <div class="metric-grid">
+        <article class="metric metric-blue"><span class="metric-icon"><i data-lucide="users" aria-hidden="true"></i></span><small class="metric-label">Karyawan aktif</small><strong id="active-count">-</strong><small class="metric-note">Terdaftar aktif</small></article>
+        <article class="metric metric-green"><span class="metric-icon"><i data-lucide="wallet" aria-hidden="true"></i></span><small class="metric-label">Data gaji bulan ini</small><strong id="payroll-count">-</strong><small class="metric-note">Slip gaji tercatat</small></article>
+        <article class="metric metric-gold"><span class="metric-icon"><i data-lucide="badge-percent" aria-hidden="true"></i></span><small class="metric-label">Total PPh 21 bulan ini</small><strong id="tax-total">-</strong><small class="metric-note">Pajak terutang</small></article>
+        <article class="metric metric-coral"><span class="metric-icon"><i data-lucide="calculator" aria-hidden="true"></i></span><small class="metric-label">Belum dihitung</small><strong id="pending-count">-</strong><small class="metric-note">Menunggu diproses</small></article>
+      </div>
+      <section class="panel chart-panel"><h2>Tren PPh 21 per bulan</h2><div class="chart-shell"><canvas id="tax-chart" height="90" hidden></canvas><div class="chart-empty" id="chart-empty"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i><strong>Belum ada data untuk ditampilkan</strong><span>Data akan muncul setelah ada perhitungan pajak</span></div></div></section>
+      <section class="panel"><h2>Perhitungan terbaru</h2><div class="table-scroll"><table><thead><tr><th>KARYAWAN</th><th>PERIODE</th><th class="nominal">BRUTO</th><th class="nominal">PPH 21</th><th class="status-cell">STATUS</th></tr></thead><tbody id="recent-body"><tr><td colspan="5" class="empty">Memuat data...</td></tr></tbody></table></div></section>
+    </section>
+
+    <section class="page-section" id="section-jabatan">
+      <header class="heading"><div><p class="eyebrow">DATA MASTER</p><h1>Jabatan</h1><p class="subheading">Kelola level dan gaji referensi.</p></div></header>
+      <section class="panel"><h2>Tambah atau edit jabatan</h2><form id="position-form"><input type="hidden" name="id"><div class="form-grid"><label class="field"><span>Nama jabatan <b class="required-mark">*</b></span><input name="nama_jabatan" required maxlength="120"></label><label class="field">Level<select name="level" required><option value="staff">Staff</option><option value="supervisor">Supervisor</option><option value="manajer">Manajer</option></select></label><label class="field">Gaji pokok default<input name="gaji_pokok_default" type="text" inputmode="numeric" data-money required></label><label class="field">Tunjangan jabatan default<input name="tunjangan_jabatan_default" type="text" inputmode="numeric" data-money value="0" required></label></div><div class="actions"><button class="button" type="submit">Simpan jabatan</button><button class="button secondary" type="reset">Kosongkan</button></div></form></section>
+      <section class="panel"><div class="toolbar"><strong>Daftar jabatan</strong><input class="search" id="position-search" type="search" placeholder="Cari jabatan"></div><div class="table-scroll"><table><thead><tr><th>NAMA JABATAN</th><th>LEVEL</th><th class="nominal">GAJI POKOK</th><th class="nominal">TUNJANGAN</th><th class="aksi">AKSI</th></tr></thead><tbody id="position-body"><tr><td colspan="5" class="empty">Memuat data...</td></tr></tbody></table></div></section>
+    </section>
+
+    <section class="page-section" id="section-karyawan">
+      <header class="heading"><div><p class="eyebrow">DATA MASTER</p><h1>Karyawan</h1><p class="subheading">Kelola identitas dan status kepegawaian.</p></div></header>
+      <section class="panel"><h2>Tambah atau edit karyawan</h2><form id="employee-form"><input type="hidden" name="id"><div class="form-grid"><label class="field"><span>NIK <b class="required-mark">*</b></span><input name="nik" minlength="8" maxlength="20" required></label><label class="field">NPWP (opsional)<input name="npwp" inputmode="numeric" pattern="[0-9]{15,16}" maxlength="16"></label><label class="field"><span>Nama lengkap <b class="required-mark">*</b></span><input name="nama_lengkap" required></label><label class="field">Status PTKP<select name="status_ptkp" required><option>TK/0</option><option>TK/1</option><option>TK/2</option><option>TK/3</option><option>K/0</option><option>K/1</option><option>K/2</option><option>K/3</option></select></label><label class="field">Status kepegawaian<select name="status_kepegawaian" required><option value="pegawai_tetap">Pegawai tetap</option><option value="pegawai_tidak_tetap">Pegawai tidak tetap</option><option value="bukan_pegawai">Bukan pegawai</option></select></label><label class="field">Jabatan<select name="jabatan_id"><option value="">Tanpa jabatan</option></select></label><label class="field">Tanggal masuk<input name="tanggal_masuk" type="date" required></label><label class="field checkbox">Status aktif<input name="status_aktif" type="checkbox" checked></label></div><p class="suggestion" id="position-suggestion"></p><div class="actions"><button class="button" type="submit">Simpan karyawan</button><button class="button secondary" type="reset">Kosongkan</button></div></form></section>
+      <section class="panel"><div class="toolbar"><strong>Daftar karyawan</strong><input class="search" id="employee-search" type="search" placeholder="Cari nama atau NIK"></div><div class="table-scroll"><table><thead><tr><th>NIK</th><th>NAMA</th><th>JABATAN</th><th>PTKP</th><th class="status-cell">STATUS</th><th class="aksi">AKSI</th></tr></thead><tbody id="employee-body"><tr><td colspan="6" class="empty">Memuat data...</td></tr></tbody></table></div></section>
+    </section>
+
+    <section class="page-section" id="section-gaji">
+      <header class="heading"><div><p class="eyebrow">PENGGAJIAN</p><h1>Input gaji bulanan</h1><p class="subheading">Masukkan komponen penghasilan dan potongan.</p></div></header>
+      <section class="panel"><h2>Rincian gaji</h2><form id="payroll-form"><input type="hidden" name="id"><div class="form-grid"><label class="field">Karyawan<select name="karyawan_id" required><option value="">Pilih karyawan aktif</option></select></label><label class="field">Bulan<input name="periode_bulan" type="number" min="1" max="12" required></label><label class="field">Tahun<input name="periode_tahun" type="number" min="2020" max="2100" required></label><label class="field">Gaji pokok<input name="gaji_pokok" type="text" inputmode="numeric" data-money value="0" required></label><label class="field">Tunjangan tetap<input name="tunjangan_tetap" type="text" inputmode="numeric" data-money value="0" required></label><label class="field">Tunjangan tidak tetap<input name="tunjangan_tidak_tetap" type="text" inputmode="numeric" data-money value="0" required></label><label class="field">Potongan BPJS Kesehatan<input name="potongan_bpjs_kesehatan" type="text" inputmode="numeric" data-money value="0" required></label><label class="field">Potongan BPJS JHT<input name="potongan_bpjs_jht" type="text" inputmode="numeric" data-money value="0" required></label><label class="field">Potongan BPJS JP<input name="potongan_bpjs_jp" type="text" inputmode="numeric" data-money value="0" required></label></div><p class="suggestion" id="salary-suggestion"></p><p class="note">Potongan BPJS hanya dicatat pada slip dan tidak mengurangi bruto untuk hitungan TER.</p><div class="actions"><button class="button" type="submit">Simpan gaji</button><button class="button secondary" type="reset">Kosongkan</button></div></form></section>
+      <section class="panel"><h2>Data gaji tersimpan</h2><div class="table-scroll"><table><thead><tr><th>KARYAWAN</th><th>PERIODE</th><th class="nominal">BRUTO</th><th class="status-cell">PAJAK</th><th class="aksi">AKSI</th></tr></thead><tbody id="payroll-body"><tr><td colspan="5" class="empty">Memuat data...</td></tr></tbody></table></div></section>
+    </section>
+
+    <section class="page-section" id="section-hitung">
+      <header class="heading"><div><p class="eyebrow">PPH PASAL 21 | PMK 168/2023</p><h1>Hitung pajak</h1><p class="subheading">TER bulanan untuk Januari-November. Desember di luar cakupan.</p></div></header>
+      <section class="panel"><div class="form-grid"><label class="field form-row">Bulan<input type="number" id="hitung-bulan" min="1" max="12" placeholder="1-12" required></label><label class="field form-row">Tahun<input type="number" id="hitung-tahun" min="2020" max="2100" placeholder="2026" required></label></div><div class="actions"><button class="button" id="btn-hitung-semua" type="button">Hitung Semua</button></div><p class="note">Penghasilan bruto adalah gaji pokok ditambah tunjangan tetap dan tidak tetap. Potongan BPJS tidak mengurangi bruto.</p></section>
+      <section class="panel"><h2>Rincian perhitungan</h2><div class="table-scroll"><table><thead><tr><th>KARYAWAN</th><th>PERIODE</th><th class="nominal">BRUTO</th><th>KATEGORI</th><th>TARIF</th><th class="nominal">PPH NORMAL</th><th>FAKTOR NPWP</th><th class="nominal">PPH TERUTANG</th><th class="status-cell">STATUS</th></tr></thead><tbody id="tabel-hitung"><tr><td colspan="9" class="empty">Pilih bulan dan tahun.</td></tr></tbody></table></div></section>
+    </section>
+
+    <section class="page-section" id="section-riwayat">
+      <header class="heading"><div><p class="eyebrow">ARSIP PAJAK</p><h1>Riwayat perhitungan</h1><p class="subheading">Filter dan ekspor catatan PPh 21.</p></div><div class="actions"><button class="button secondary" id="export-pdf" type="button">Export PDF</button><button class="button secondary" id="export-excel" type="button">Export Excel</button></div></header>
+      <section class="panel"><div class="toolbar"><strong>Filter riwayat</strong><input class="search" id="history-name" type="search" placeholder="Nama atau NIK"><select id="history-month"><option value="">Semua bulan</option><option value="1">Januari</option><option value="2">Februari</option><option value="3">Maret</option><option value="4">April</option><option value="5">Mei</option><option value="6">Juni</option><option value="7">Juli</option><option value="8">Agustus</option><option value="9">September</option><option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option></select><input id="history-year" type="number" min="2020" max="2100" placeholder="Tahun"></div><div class="table-scroll"><table><thead><tr><th>NAMA</th><th>NIK</th><th>PERIODE</th><th>PTKP</th><th class="nominal">BRUTO</th><th>KATEGORI | TARIF</th><th class="nominal">PPH NORMAL</th><th class="nominal">PPH TERUTANG</th><th class="status-cell">PEMBAYARAN</th><th class="aksi">AKSI</th></tr></thead><tbody id="history-body"><tr><td colspan="10" class="empty">Memuat data...</td></tr></tbody></table></div><div class="pagination"><button class="button secondary small" id="history-previous" type="button">Sebelumnya</button><span id="history-page">Halaman 1</span><button class="button secondary small" id="history-next" type="button">Berikutnya</button></div></section>
+    </section>
+
+    <footer class="footer">PT Sinar Abadi | Distribusi alat tulis kantor | PPh Pasal 21</footer>
+  </main>
+  <div class="loading" id="loading-overlay"><span class="spinner"></span></div>
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  <script src="../../backend/app.js"></script>
+  <script src="../js/script.js"></script>
+  <script>
+    document.addEventListener('click', (event) => {
+      const toggle = event.target.closest('#sidebar-toggle');
+      if (!toggle) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const open = document.querySelector('#sidebar').classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+    }, true);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+      const applyTableClasses = () => {
+        document.querySelectorAll('main table').forEach((table) => {
+          const headers = [...table.querySelectorAll('thead th')];
+          headers.forEach((header) => {
+            const label = header.textContent.trim().toUpperCase();
+            if (/BRUTO|GAJI POKOK|TUNJANGAN|PPH/.test(label)) header.classList.add('nominal');
+            if (/^(AKSI)$/.test(label)) header.classList.add('aksi');
+            if (/^(STATUS|PEMBAYARAN|PAJAK)$/.test(label)) header.classList.add('status-cell');
+          });
+          table.querySelectorAll('tbody tr').forEach((row) => {
+            [...row.cells].forEach((cell, index) => {
+              if (cell.colSpan > 1) return;
+              const label = headers[index]?.textContent.trim().toUpperCase() || '';
+              if (/BRUTO|GAJI POKOK|TUNJANGAN|PPH/.test(label)) cell.classList.add('nominal');
+              if (/^(AKSI)$/.test(label) || cell.querySelector('button')) cell.classList.add('aksi');
+              if (/^(STATUS|PEMBAYARAN|PAJAK)$/.test(label) || cell.querySelector('.badge')) cell.classList.add('status-cell');
+            });
+          });
+        });
+      };
+      applyTableClasses();
+      new MutationObserver(applyTableClasses).observe(document.querySelector('main'), { childList: true, subtree: true });
+
+      const date = document.querySelector('#dashboard-date');
+      if (date) date.textContent = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
+      document.querySelectorAll('.metric strong').forEach((counter) => {
+        new MutationObserver(() => {
+          const raw = counter.textContent.trim();
+          if (!raw || raw === '-' || counter.dataset.counting || counter.dataset.counted === raw) return;
+          const target = Number(raw.replace(/\D/g, ''));
+          if (!Number.isFinite(target)) return;
+          const currency = raw.includes('Rp');
+          counter.dataset.counting = 'true';
+          const startedAt = performance.now();
+          const tick = (now) => {
+            const progress = Math.min((now - startedAt) / 800, 1);
+            const value = Math.round(target * (1 - (1 - progress) ** 3));
+            counter.textContent = currency ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value) : new Intl.NumberFormat('id-ID').format(value);
+            if (progress < 1) requestAnimationFrame(tick);
+            else {
+              counter.dataset.counting = '';
+              counter.dataset.counted = counter.textContent;
+            }
+          };
+          requestAnimationFrame(tick);
+        }).observe(counter, { childList: true, characterData: true, subtree: true });
+      });
+
+      const canvas = document.querySelector('#tax-chart');
+      const emptyState = document.querySelector('#chart-empty');
+      const loading = document.querySelector('#loading-overlay');
+      const styleChart = () => {
+        const chart = window.Chart?.getChart(canvas);
+        if (!chart) return;
+        const dataset = chart.data.datasets[0];
+        const hasData = dataset?.data.some((value) => Number(value) !== 0);
+        emptyState.hidden = hasData;
+        canvas.hidden = !hasData;
+        if (!hasData) return;
+
+        chart.config.type = 'line';
+        const gradient = chart.ctx.createLinearGradient(0, chart.chartArea.top, 0, chart.chartArea.bottom);
+        gradient.addColorStop(0, 'rgba(30, 64, 175, 0.2)');
+        gradient.addColorStop(1, 'rgba(30, 64, 175, 0)');
+        Object.assign(dataset, { borderColor: '#1E40AF', backgroundColor: gradient, borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#1E40AF', pointBorderColor: '#FFFFFF', pointBorderWidth: 2 });
+        Object.values(chart.options.scales).forEach((scale) => Object.assign(scale.grid, { color: '#E2E8F0', borderDash: [3, 5] }));
+        chart.update('none');
+      };
+
+      if (loading) new MutationObserver(() => {
+        if (!loading.classList.contains('show')) requestAnimationFrame(styleChart);
+      }).observe(loading, { attributes: true, attributeFilter: ['class'] });
+
+      const toastRegion = document.querySelector('#toast-region');
+      if (toastRegion && window.lucide) new MutationObserver((records) => {
+        records.flatMap((record) => [...record.addedNodes]).filter((node) => node.nodeType === Node.ELEMENT_NODE && node.matches('.toast')).forEach((toast) => {
+          const icon = document.createElement('i');
+          icon.setAttribute('data-lucide', toast.classList.contains('error') ? 'circle-alert' : 'circle-check');
+          icon.setAttribute('aria-hidden', 'true');
+          toast.prepend(icon);
+          lucide.createIcons({ root: toast });
+        });
+      }).observe(toastRegion, { childList: true });
+    });
+  </script>
+</body>
+</html>
